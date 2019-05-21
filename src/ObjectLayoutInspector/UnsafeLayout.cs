@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using ValueGetter = System.Func<object?, object?>;
-using ValueComparer = System.Func<object?, bool>;
+using ValueGetter = System.Func<object, object>;
+using ValueComparer = System.Func<object, bool>;
 
 namespace ObjectLayoutInspector
 {
@@ -39,7 +39,7 @@ namespace ObjectLayoutInspector
         /// <typeparam name="T">To to get structure of.</typeparam>
         /// <param name="considerPrimitives">Eny type in collection will be considered primitive and will not be splitted into several fields.</param>
         /// <param name="recursive">If true the resulting list will have fields for all nested types as well.</param>
-        public static IReadOnlyList<FieldLayout> GetFieldsLayout<T>(bool recursive = true, IReadOnlyCollection<Type>? considerPrimitives = null)
+        public static IReadOnlyList<FieldLayout> GetFieldsLayout<T>(bool recursive = true, IReadOnlyCollection<Type> considerPrimitives = null)
             where T : struct
         {
             var tree = GetLayoutTree<T>();
@@ -54,7 +54,7 @@ namespace ObjectLayoutInspector
         /// <param name="considerPrimitives">Eny type in collection will be considered primitive and will not be splitted into several fields.</param>
         /// <param name="recursive">If true the resulting list will have fields for all nested types as well.</param>
         /// <param name="hierarchical">Not implemented yet if specified.</param>
-        public static IReadOnlyList<FieldLayoutBase> GetLayout<T>(bool recursive = true, IReadOnlyCollection<Type>? considerPrimitives = null, bool hierarchical = false)
+        public static IReadOnlyList<FieldLayoutBase> GetLayout<T>(bool recursive = true, IReadOnlyCollection<Type> considerPrimitives = null, bool hierarchical = false)
             where T : struct
         {
             if (hierarchical)
@@ -72,7 +72,7 @@ namespace ObjectLayoutInspector
             return layouts;
         }
 
-        private static IReadOnlyList<FieldLayout> GetFieldsLayoutInternal<T>(in RootNode tree, bool recursive, IReadOnlyCollection<Type>? primitives) where T : struct
+        private static IReadOnlyList<FieldLayout> GetFieldsLayoutInternal<T>(in RootNode tree, bool recursive, IReadOnlyCollection<Type> primitives) where T : struct
         {
             var fieldsLayout = new List<FieldLayout>();
             if (tree.IsPrimitive)
@@ -220,7 +220,7 @@ namespace ObjectLayoutInspector
             var fields = FieldNode.GetFieldNodes(type);
             var root = new FieldNode { kind = NodeKind.Root, rootNode = new RootNode { children = fields, totalOffset = 0, size = Unsafe.SizeOf<T>() } };
             var previous = 0;
-            GetLayout<T>(ref previous, ref root, new List<ValueGetter>(), new List<Twiddler<T>?> { null });
+            GetLayout<T>(ref previous, ref root, new List<ValueGetter>(), new List<Twiddler<T>> { null });
 
             return root.rootNode;
         }
@@ -228,8 +228,8 @@ namespace ObjectLayoutInspector
         private static void GetLayout<T>(
            ref int previous,
            ref FieldNode node,
-           List<Func<object?, object?>> getterHierarchy,
-           List<Twiddler<T>?> twiddlerHierarchy)
+           List<Func<object, object>> getterHierarchy,
+           List<Twiddler<T>> twiddlerHierarchy)
            where T : struct
         {
             switch (node.kind)
@@ -239,7 +239,7 @@ namespace ObjectLayoutInspector
                     break;
                 case NodeKind.Primitive:
                     var pType = node.primitiveNode.Type;
-                    Func<object?, bool> primitiveEmptyComparator = x => Activator.CreateInstance(pType).Equals(x);
+                    Func<object, bool> primitiveEmptyComparator = x => Activator.CreateInstance(pType).Equals(x);
                     if (!Detectors.IsNullable(node.info.DeclaringType))
                     {
                         getterHierarchy.Add(node.info.GetValue);
@@ -264,7 +264,7 @@ namespace ObjectLayoutInspector
                     getterHierarchy.Add(node.info.GetValue);
 
                     var propertyGetter = node.info.FieldType.GetProperty("HasValue");
-                    Func<object?, object?> hasValueGetter = x => x != null ? propertyGetter.GetValue(x) : null;
+                    Func<object, object> hasValueGetter = x => x != null ? propertyGetter.GetValue(x) : null;
                     getterHierarchy.Add(hasValueGetter);
                     ValueComparer hasValueEmptyComparator = x => x == null;
                     FindPrimitiveOffset<T>(ref hasValue.primitiveNode, getterHierarchy, hasValueEmptyComparator, twiddlerHierarchy);
@@ -344,8 +344,8 @@ namespace ObjectLayoutInspector
         private static void FindPrimitiveOffset<T>(
            ref PrimitiveNode node,
            List<ValueGetter> getterHierarchy,
-           Func<object?, bool> emptyComparator,
-           List<Twiddler<T>?> twiddlerHierarchy)
+           Func<object, bool> emptyComparator,
+           List<Twiddler<T>> twiddlerHierarchy)
            where T : struct
         {
             T seed = default;
@@ -362,7 +362,7 @@ namespace ObjectLayoutInspector
                 }
 
                 seedByteRef = 1;
-                object? modifiedValue = GetValue(getterHierarchy, seed);
+                object modifiedValue = GetValue(getterHierarchy, seed);
                 if (!emptyComparator(modifiedValue) && offset < 0)
                 {
                     offset = i;
@@ -389,7 +389,7 @@ namespace ObjectLayoutInspector
             throw new NotImplementedException($"Failed to find offset and size of {node.Type.FullName} in {typeof(T).FullName}");
         }
 
-        private static void FindReferenceOffset<T>(ref ReferenceNode node, List<Func<object?, object?>> getterHierarchy)
+        private static void FindReferenceOffset<T>(ref ReferenceNode node, List<Func<object, object>> getterHierarchy)
                where T : struct
         {
             var fieldInfo = node.info;
@@ -422,12 +422,12 @@ namespace ObjectLayoutInspector
             return offset + size;
         }
 
-        private static object? GetValue<T>(List<ValueGetter> getterHierarchy, in T rootDummy) where T : struct
+        private static object GetValue<T>(List<ValueGetter> getterHierarchy, in T rootDummy) where T : struct
         {
-            object? value = rootDummy;
+            object value = rootDummy;
             for (int i = 0; i < getterHierarchy.Count; i++)
             {
-                Func<object?, object?> field = getterHierarchy[i];
+                Func<object, object> field = getterHierarchy[i];
                 value = field(value);
             }
 

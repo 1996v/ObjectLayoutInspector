@@ -39,7 +39,7 @@ namespace ObjectLayoutInspector
         /// <nodoc />
         public FieldLayoutBase[] Fields { get; }
 
-        private TypeLayout(Type type, int size, int overhead, FieldLayoutBase[] fields, TypeLayoutCache? cache)
+        private TypeLayout(Type type, int size, int overhead, FieldLayoutBase[] fields, TypeLayoutCache cache)
         {
             Type = type;
             Size = size;
@@ -50,7 +50,8 @@ namespace ObjectLayoutInspector
             // Assuming there is no one.
             var thisInstancePaddings = type.IsUnsafeValueType() ? 0 : fields.OfType<Padding>().Sum(p => p.Size);
 
-            cache ??= TypeLayoutCache.Create();
+            if (cache == null)
+                cache = TypeLayoutCache.Create();
 
             var nestedPaddings = fields
                 // Need to include paddings for value types only
@@ -60,7 +61,7 @@ namespace ObjectLayoutInspector
                 .Where(fl => fl.FieldInfo.FieldType.IsValueType && !fl.FieldInfo.FieldType.IsPrimitive)
                 .Select(fl => GetLayout(fl.FieldInfo.FieldType, cache, includePaddings: true))
                 .Sum(tl => tl.Paddings);
-            
+
             Paddings = thisInstancePaddings + nestedPaddings;
 
             // Updating the cache.
@@ -117,7 +118,7 @@ namespace ObjectLayoutInspector
         /// <summary>
         /// Gets a layout of <typeparamref name="T"/>.
         /// </summary>
-        public static TypeLayout GetLayout<T>(TypeLayoutCache? cache = null, bool includePaddings = true)
+        public static TypeLayout GetLayout<T>(TypeLayoutCache cache = null, bool includePaddings = true)
         {
             return GetLayout(typeof(T), cache, includePaddings);
         }
@@ -125,7 +126,7 @@ namespace ObjectLayoutInspector
         /// <summary>
         /// Gets a layout of a given <paramref name="type"/>.
         /// </summary>
-        public static TypeLayout GetLayout(Type type, TypeLayoutCache? cache = null, bool includePaddings = true)
+        public static TypeLayout GetLayout(Type type, TypeLayoutCache cache = null, bool includePaddings = true)
         {
             if (cache != null && cache.LayoutCache.TryGetValue(type, out var result))
             {
@@ -142,7 +143,7 @@ namespace ObjectLayoutInspector
             {
                 Console.WriteLine($"Failed to create an instance of type {type}: {e}.");
                 throw;
-            }            
+            }
 
             TypeLayout DoGetLayout()
             {

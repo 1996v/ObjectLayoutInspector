@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 
 // It is not clear how to write MaxBy with in non-nullable context. Technically, this method is null-invariant.
-#nullable disable
+
 
 namespace ObjectLayoutInspector
 {
